@@ -1,0 +1,133 @@
+# equity-research-mcp
+
+Locally-installable MCP server exposing equity-research tools over
+Finnhub, SEC EDGAR, and Reddit. US equities only at MVP.
+
+## What this is NOT
+- Not a trading system, brokerage integration, or order executor
+- Not a backtest engine or P&L tracker
+- Not a screener or signal generator
+- Not a sentiment analyzer (Reddit returns mention counts, not scores)
+
+If a feature crosses this line, push back before building.
+
+## Toolchain & layout
+- Python 3.12
+- pip + pyproject.toml. NEVER Poetry, pdm, conda, or `uv` as a package manager.
+- venv in `.venv/` at repo root
+- src layout: `src/equity_research_mcp/`
+- Tests in `tests/` at repo root
+- Build backend: hatchling
+- Invoke venv binaries directly (`.venv/bin/python -m pip`, `.venv/bin/python -m pytest`). Do not rely on `source .venv/bin/activate` persisting between bash calls — shell state does not carry across separate tool invocations.
+
+## Secrets & environment
+All API keys come from shell environment, never from files in the repo.
+Required env vars (each adapter checks at construction):
+- `FINNHUB_API_KEY`
+- `SEC_USER_AGENT`  (format: "Your Name your@email" — SEC requires this)
+- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `REDDIT_USER_AGENT`
+- `ANTHROPIC_API_KEY` — only when LLM critic lands (v0.3+); unused in v0.1
+
+`.env.example` exists for documentation only. `.env*` files are
+gitignored except `.env.example`. There is no `python-dotenv` dep —
+shells export their own env.
+
+## .gitignore was set up before any matching file
+`.env`, `.env.*` (with `!.env.example`), `.venv/`, `.coverage`,
+`__pycache__/`, `.pytest_cache/`, `.claude/settings.local.json`,
+`dist/`, `build/`, `*.egg-info/`.
+
+## Architecture conventions
+
+### Single ClaudeClient gateway
+All Anthropic API calls go through `equity_research_mcp.llm.ClaudeClient`.
+No `anthropic.Anthropic()` instantiations anywhere else. v0.1 has zero
+Anthropic calls — the gateway and the `llm/` folder land in v0.3 with
+the LLM critic.
+
+### Per-call budget via ContextVar
+Each MCP tool call enters a fresh `Budget` context with named buckets.
+Adapters call `current().charge(BUCKET_REQUESTS)` on each outbound HTTP
+call. Exceeding a bucket's limit raises `BudgetExceeded` — hard fail.
+
+v0.1 enforces only the `requests` bucket (external HTTP calls).
+v0.3 adds the `tokens` bucket at the LLM gateway. Same `charge(bucket,
+amount)` API — additive, no method-shape change.
+
+### Source adapters as Protocol, not inheritance
+See `src/equity_research_mcp/adapters/CLAUDE.md` for adapter rules. The
+aggregator is source-unaware.
+
+### Filesystem cache, content-hash + per-source TTL
+JSON files under `~/.cache/equity-research-mcp/`. Key is SHA-256 of
+(source, endpoint, params). TTL is per-source (price=1d, filings=1w,
+news=4h, social=1h). No SQLite, no Redis.
+
+### No persistent state between MCP calls
+Each tool call is stateless. Watchlists, alerts, "remember this from
+yesterday" are out of scope — the MCP client's conversation context is
+where memory lives.
+
+### Tools surface frozen at 6 for v0.1
+Adding a tool requires explicit discussion of what it displaces. The
+aggregator (`research_brief`) is the headline tool.
+
+## Workflow rules
+
+This repo is private during development but **will go public**, and git
+history is forever. Two hard constraints that override everything else:
+
+1. **Never commit secrets.** No API keys, tokens, `.env` contents,
+   `SEC_USER_AGENT` values, or Reddit credentials in any committed file —
+   not in code, not in fixtures, not in tests, not in commit messages.
+   `.gitignore` covers `.env*` (except `.env.example`) before any
+   matching file exists. If a real secret would be needed to proceed,
+   stop and ask; never inline a placeholder that looks real.
+
+2. **Pip is gated by deps preview, not by per-command approval.** Before
+   running `pip install` at the start of a phase, show the full proposed
+   dependency list with a one-line justification per package. Dependency
+   hygiene, not bureaucracy.
+
+Standing approvals (encoded in `.claude/settings.local.json`):
+- `Edit`, `Write`, `Read` — no per-file prompt
+- All `git` subcommands (add, commit, branch, checkout, push, merge,
+  tag, reset, rebase, switch, restore, stash, log, diff, status, show)
+- `pip` install/uninstall/list/show/freeze (after the deps preview gate)
+- `pytest`, `python`, standard read-only shell ops
+
+Standing denials (also in `.claude/settings.local.json`):
+- `git push --force*`, `git push -f`, `git push --force-with-lease*`
+- `git reset --hard*`, `git clean -f*`
+- `git config --global*` / `--system*`
+- `rm -rf*`, `rm -fr*`, `rm -r *`, `sudo *`
+
+When to stop and ask:
+- An API key registration that requires you (e.g. Reddit app)
+- A scope decision (cutting/expanding a tool)
+- Anything ambiguous that the plan or CLAUDE.md doesn't cover
+
+Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`,
+`refactor:`), one feature branch per phase (`phase/NN-short-name`),
+PR with self-merge, annotated tag at release boundaries only.
+
+## Testing scope
+Tests cover: adapter normalization, aggregator logic, budget mechanics,
+cache TTL/key behavior, error mapping. Excluded by design: FastMCP
+server startup, thin tool decorators that just call into adapters, pure
+I/O wrappers.
+
+Adapter tests use saved JSON fixtures under `tests/fixtures/<source>/`.
+No live network calls in tests. No VCR cassettes.
+
+## Honest-language rule
+No "production-ready", no "enterprise-grade", no "scales to millions",
+no unverified performance numbers. Name tradeoffs explicitly. If a
+limit is unknown, write "unmeasured" instead of guessing.
+
+## Subagents available
+- `code-reviewer` (sonnet) — runs after each phase, checks the diff
+  against this CLAUDE.md, prioritized output (critical / warning /
+  suggestion). Offline only; no network tools.
+- `adapter-test-writer` (sonnet) — writes fixture-based pytest tests
+  for a given adapter. Offline only; no live network calls.

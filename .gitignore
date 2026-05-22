@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# venv
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment files (secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# Claude Code local settings (personal, never committed)
+.claude/settings.local.json
+
+# Project cache (lives in ~/.cache/ by default, but if anyone sets it local)
+.cache/

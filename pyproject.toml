@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "equity-research-mcp"
+version = "0.1.0.dev0"
+description = "MCP server exposing equity-research tools over Finnhub, SEC EDGAR, and Reddit."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [{ name = "Tomislav Sola" }]
+
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+equity-research-mcp = "equity_research_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/equity_research_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

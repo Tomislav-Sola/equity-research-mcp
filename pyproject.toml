@@ -11,13 +11,18 @@ requires-python = ">=3.12"
 authors = [{ name = "Tomislav Sola" }]
 
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    "mcp[cli]>=1.27",
     "pydantic>=2.5",
+    "httpx>=0.28",
+    "yfinance>=1.0",
+    "pandas>=2.2",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=1.0",
+    "respx>=0.21",
 ]
 
 [project.scripts]
@@ -28,3 +33,4 @@ packages = ["src/equity_research_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"

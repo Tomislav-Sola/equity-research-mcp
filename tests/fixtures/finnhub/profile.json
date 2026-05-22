@@ -1,0 +1,15 @@
+{
+  "country": "US",
+  "currency": "USD",
+  "estimateCurrency": "USD",
+  "exchange": "NASDAQ NMS - GLOBAL MARKET",
+  "finnhubIndustry": "Technology",
+  "ipo": "1995-01-01",
+  "logo": "https://static.example/logos/acme.png",
+  "marketCapitalization": 1234567.89,
+  "name": "Acme Corp",
+  "phone": "12025550100",
+  "shareOutstanding": 1500.5,
+  "ticker": "ACME",
+  "weburl": "https://www.acme.example/"
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "category": "company",
+    "datetime": 1767571200,
+    "headline": "Acme reports Q4 earnings beat",
+    "id": 1000001,
+    "image": "https://static.example/news/1.jpg",
+    "related": "ACME",
+    "source": "Example Wire",
+    "summary": "Acme Corp reported Q4 revenue ahead of consensus.",
+    "url": "https://news.example/articles/acme-q4"
+  },
+  {
+    "category": "company",
+    "datetime": 1767657600,
+    "headline": "Acme announces buyback authorization",
+    "id": 1000002,
+    "image": "",
+    "related": "ACME",
+    "source": "Example Newswire",
+    "summary": "Board authorized up to $5B in share repurchases over 24 months.",
+    "url": "https://news.example/articles/acme-buyback"
+  },
+  {
+    "category": "company",
+    "datetime": 1767744000,
+    "headline": "Analyst raises Acme price target",
+    "id": 1000003,
+    "image": "https://static.example/news/3.jpg",
+    "related": "ACME",
+    "source": "Example Research",
+    "summary": "Sell-side analyst raises target to $190 from $175.",
+    "url": "https://news.example/articles/acme-target"
+  }
+]

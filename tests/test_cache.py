@@ -44,3 +44,11 @@ def test_keys_differ_by_source(tmp_cache_dir):
     cache.put("polygon", "profile", {"t": "AAPL"}, "from-polygon")
     assert cache.get("finnhub", "profile", {"t": "AAPL"}, 60) == "from-finnhub"
     assert cache.get("polygon", "profile", {"t": "AAPL"}, 60) == "from-polygon"
+
+
+def test_keys_differ_by_endpoint(tmp_cache_dir):
+    cache = FSCache(root=tmp_cache_dir)
+    cache.put("finnhub", "profile", {"t": "AAPL"}, "the-profile")
+    cache.put("finnhub", "news", {"t": "AAPL"}, "the-news")
+    assert cache.get("finnhub", "profile", {"t": "AAPL"}, 60) == "the-profile"
+    assert cache.get("finnhub", "news", {"t": "AAPL"}, 60) == "the-news"

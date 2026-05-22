@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 
 from equity_research_mcp.schemas import (
     CompanyProfile,
@@ -85,5 +86,5 @@ def test_social_mention_defaults_source():
 
 def test_models_are_frozen():
     cp = CompanyProfile(ticker="AAPL", name="Apple", source="finnhub")
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         cp.name = "Apple Inc."  # type: ignore[misc]

@@ -71,6 +71,7 @@ class SocialMention(BaseModel):
     post_id: str
     title: str
     url: str
+    # Reddit upvotes minus downvotes — a popularity signal, NOT sentiment.
     score: int
     num_comments: int
     created_at: datetime

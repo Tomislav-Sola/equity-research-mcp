@@ -12,6 +12,10 @@ from . import __version__
 mcp = FastMCP("equity-research-mcp")
 
 
+# Diagnostic tool — does NOT count toward the 6 research tools frozen
+# for v0.1 (see CLAUDE.md "Tools surface frozen at 6"). Revisit at the
+# v0.1.0 release: keep as a diagnostic, or remove if the 6 tools cover
+# the smoke-test need.
 @mcp.tool()
 def health() -> dict[str, str]:
     """Return server status. No external calls."""

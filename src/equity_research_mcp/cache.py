@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -56,7 +57,17 @@ class FSCache:
         payload: Any,
     ) -> None:
         path = self._path(self._key(source, endpoint, params))
-        path.write_text(
-            json.dumps({"payload": payload, "written_at": time.time()}, default=str),
-            encoding="utf-8",
-        )
+        try:
+            path.write_text(
+                json.dumps({"payload": payload, "written_at": time.time()}, default=str),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            # Cache is a perf layer: a failed write must not break the
+            # request. But silent failure turns into a debugging black
+            # hole, so surface it. structlog arrives in v0.2.
+            warnings.warn(
+                f"FSCache.put failed for {source}/{endpoint}: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )

@@ -18,7 +18,18 @@ DEFAULT_CACHE_DIR = Path.home() / ".cache" / "equity-research-mcp"
 class FSCache:
     def __init__(self, root: Path = DEFAULT_CACHE_DIR):
         self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
+        try:
+            self.root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            # Same rationale as put(): cache is a perf layer, FS errors
+            # must not break the request. If the dir can't be created,
+            # operate in pass-through mode — get() returns None (path
+            # won't exist) and put() will warn-and-continue too.
+            warnings.warn(
+                f"FSCache.__init__ could not create {self.root}: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     def _key(self, source: str, endpoint: str, params: dict[str, Any]) -> str:
         normalized = json.dumps(

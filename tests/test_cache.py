@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import time
+from unittest.mock import patch
+
+import pytest
 
 from equity_research_mcp.cache import FSCache
 
@@ -52,3 +55,21 @@ def test_keys_differ_by_endpoint(tmp_cache_dir):
     cache.put("finnhub", "news", {"t": "AAPL"}, "the-news")
     assert cache.get("finnhub", "profile", {"t": "AAPL"}, 60) == "the-profile"
     assert cache.get("finnhub", "news", {"t": "AAPL"}, 60) == "the-news"
+
+
+def test_put_warns_and_does_not_raise_on_oserror(tmp_cache_dir):
+    cache = FSCache(root=tmp_cache_dir)
+    with patch("pathlib.Path.write_text", side_effect=OSError("disk full")):
+        with pytest.warns(RuntimeWarning, match="FSCache.put failed"):
+            cache.put("finnhub", "profile", {"t": "AAPL"}, {"name": "Apple"})
+    # Confirm nothing was persisted — pass-through, not partial write.
+    assert cache.get("finnhub", "profile", {"t": "AAPL"}, 60) is None
+
+
+def test_init_warns_and_does_not_raise_when_mkdir_fails(tmp_path):
+    bad_root = tmp_path / "cache"
+    with patch("pathlib.Path.mkdir", side_effect=OSError("read-only fs")):
+        with pytest.warns(RuntimeWarning, match="could not create"):
+            cache = FSCache(root=bad_root)
+    # And the cache still operates in pass-through mode without raising.
+    assert cache.get("finnhub", "profile", {"t": "AAPL"}, 60) is None

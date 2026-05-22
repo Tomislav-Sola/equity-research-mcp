@@ -1,8 +1,9 @@
-"""Phase 2 research tools — thin wrappers over the Finnhub adapter.
+"""Phase 2 research tools — thin wrappers over the Finnhub and yfinance adapters.
 
-Each tool enters a fresh budget context (requests bucket only at v0.1)
-and dispatches to the adapter. Statistics computed in the tool layer,
-not the adapter — adapters return raw normalized data.
+Profile and news dispatch to Finnhub; price_action dispatches to yfinance
+(Finnhub's candle endpoint is paid-tier only). Each tool enters a fresh
+budget context (requests bucket only at v0.1). Statistics computed in
+the tool layer, not the adapter — adapters return raw normalized data.
 """
 from __future__ import annotations
 

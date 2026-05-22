@@ -380,3 +380,60 @@ async def test_normalization_market_cap_exact_decimal(tmp_cache_dir, monkeypatch
     # marketCapitalization=1234567.89 in the fixture
     # market_cap = Decimal("1234567.89") * Decimal("1000000") = Decimal("1234567890000.00")
     assert profile.market_cap == Decimal("1234567890000.00")
+
+
+# ---------------------------------------------------------------------------
+# Test 11 — Non-429 4xx → UpstreamError (the path Finnhub /stock/candle
+# free-tier 403 exercises live in production)
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_non_429_4xx_maps_to_upstream_error(tmp_cache_dir, monkeypatch):
+    """HTTP 403 (or any non-429 4xx) maps to UpstreamError with the status
+    code and response body fragment in the detail. This is the path
+    Finnhub's /stock/candle exercises on free-tier keys."""
+    respx.get(f"{BASE_URL}/stock/candle").mock(
+        return_value=httpx.Response(
+            403, text='{"error":"You don\'t have access to this resource."}'
+        )
+    )
+
+    adapter = make_adapter(tmp_cache_dir, monkeypatch)
+    with pytest.raises(UpstreamError) as exc_info:
+        with budget_context({BUCKET_REQUESTS: 1}):
+            await adapter.get_price_bars("ACME", date(2026, 1, 5), date(2026, 1, 9))
+
+    assert exc_info.value.source == "finnhub"
+    assert "403" in exc_info.value.detail
+    assert "access" in exc_info.value.detail.lower()
+
+
+# ---------------------------------------------------------------------------
+# Test 12 — Cache hit skips the HTTP call AND the budget charge
+# ---------------------------------------------------------------------------
+
+@respx.mock
+async def test_cache_hit_skips_budget_charge(tmp_cache_dir, monkeypatch):
+    """A second call with a pre-warm cache must not charge the budget,
+    proving that current().charge(BUCKET_REQUESTS) lives inside the HTTP
+    path (not the public method) and is correctly bypassed on cache hits.
+    """
+    payload = load_fixture("profile.json")
+    route = respx.get(f"{BASE_URL}/stock/profile2").mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+
+    adapter = make_adapter(tmp_cache_dir, monkeypatch)
+
+    # First call: budget 1, charges once on the miss, warms the cache.
+    with budget_context({BUCKET_REQUESTS: 1}):
+        first = await adapter.get_company_profile("ACME")
+        assert current().remaining(BUCKET_REQUESTS) == 0
+
+    # Second call on a fresh budget of 0: cache hit, no charge, no raise.
+    with budget_context({BUCKET_REQUESTS: 0}):
+        second = await adapter.get_company_profile("ACME")
+        assert current().remaining(BUCKET_REQUESTS) == 0
+
+    assert first == second
+    assert route.call_count == 1  # network was hit exactly once

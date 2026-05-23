@@ -1,5 +1,10 @@
 # equity-research-mcp
 
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/github/license/Tomislav-Sola/equity-research-mcp)](LICENSE)
+[![Coverage 86%](https://img.shields.io/badge/coverage-86%25-yellowgreen.svg)](#tests)
+[![Release](https://img.shields.io/github/v/release/Tomislav-Sola/equity-research-mcp)](https://github.com/Tomislav-Sola/equity-research-mcp/releases)
+
 <p align="center">
   <img src="docs/hero.png" alt="equity-research-mcp pipeline: Claude request → 4-way concurrent fan-out across SEC EDGAR, Finnhub, yfinance → deterministic aggregator → structured brief" width="800" />
 </p>

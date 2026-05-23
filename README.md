@@ -1,5 +1,9 @@
 # equity-research-mcp
 
+<p align="center">
+  <img src="docs/hero.png" alt="equity-research-mcp pipeline: Claude request → 4-way concurrent fan-out across SEC EDGAR, Finnhub, yfinance → deterministic aggregator → structured brief" width="800" />
+</p>
+
 A locally-installable [MCP server](https://modelcontextprotocol.io) that
 aggregates US-equity research from three free data sources — SEC EDGAR,
 Finnhub, yfinance — into a single set of tools for Claude Desktop and

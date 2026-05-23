@@ -1,0 +1,7 @@
+# docs/
+
+Project artifacts referenced from the root README.
+
+- `hero.png` — 1200×630 infographic (4-stage pipeline overview).
+  Generated from the prompt in the project documentation.
+  Referenced at the top of `/README.md`.

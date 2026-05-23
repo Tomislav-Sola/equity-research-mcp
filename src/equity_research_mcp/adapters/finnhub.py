@@ -31,8 +31,8 @@ FINNHUB_BASE = "https://finnhub.io/api/v1"
 SOURCE = "finnhub"
 
 # Per-source TTLs. CLAUDE.md fixes price=1d, news=4h, filings=1w,
-# social=1h. Profile is unspecified; 7d matches the cadence at which
-# company metadata (sector, exchange, share count) actually changes.
+# profile=1w. 7d matches the cadence at which company metadata (sector,
+# exchange, share count) actually changes.
 TTL_PROFILE_SECONDS = 7 * 24 * 60 * 60
 TTL_PRICE_SECONDS = 24 * 60 * 60
 TTL_NEWS_SECONDS = 4 * 60 * 60

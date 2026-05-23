@@ -106,3 +106,63 @@ class SocialMention(BaseModel):
     num_comments: int
     created_at: datetime
     source: str = "reddit"
+
+
+# ---------------------------------------------------------------------------
+# research_brief output schemas (Phase 5)
+# ---------------------------------------------------------------------------
+
+
+class BriefSection(BaseModel):
+    """One section of a research_brief — wraps a per-source tool output.
+
+    Either ok=True with data populated, or ok=False with error populated.
+    Errors here are *source* failures (rate limits, upstream errors,
+    timeouts, missing creds for that source). BudgetExceeded is NOT a
+    source failure — see aggregator.research_brief for that contract.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    ok: bool
+    data: dict | None = None
+    error: str | None = None
+
+
+class ResearchBriefFlags(BaseModel):
+    """Deterministic cross-source flags computed from the brief data.
+
+    Each flag is a "co-occurrence within the brief window" boolean:
+    both signals were present somewhere in days_back, NOT same-day or
+    near-in-time. A flag fires for an insider buy on day 2 and a volume
+    spike on day 28 just as it does for both on day 5. This is a v0.1
+    simplification — the boolean labels what happened in the window,
+    not how tightly the events lined up. Temporal-proximity scoring is
+    a future refinement.
+
+    Flags are False when any input source needed to evaluate them is
+    degraded (ok=False) — no data is treated as "no signal," never as
+    a partial trip.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    insider_buying_with_volume_spike: bool
+    insider_selling_with_volume_spike: bool
+
+
+class ResearchBrief(BaseModel):
+    """The full research_brief output."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ticker: str
+    days_back: int
+    start: date
+    end: date
+    generated_at: datetime
+    profile: BriefSection
+    price_action: BriefSection
+    news: BriefSection
+    filings: BriefSection
+    flags: ResearchBriefFlags

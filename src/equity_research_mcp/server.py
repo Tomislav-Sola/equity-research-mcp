@@ -1,7 +1,8 @@
 """FastMCP server entrypoint.
 
-Phase 3 adds get_recent_filings (4 of the 6 frozen for v0.1). The
-diagnostic `health` tool from Phase 1 remains and is not counted.
+Phase 5 adds research_brief, completing the 5 research tools frozen for
+v0.1 (4 single-source tools + the aggregator). The diagnostic `health`
+tool from Phase 1 remains and is not counted.
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
 
 
-# --- Research tools (4 of 6 for v0.1). Finnhub + yfinance + EDGAR. ---
+# --- Research tools (5 of 5 for v0.1). Finnhub + yfinance + EDGAR. ---
 
 
 @mcp.tool()
@@ -62,6 +63,24 @@ async def get_recent_filings(
     filters on filing date.
     """
     return await _tools.get_recent_filings(ticker, filing_types, days_back)
+
+
+@mcp.tool()
+async def research_brief(ticker: str, days_back: int = 30) -> dict[str, Any]:
+    """Headline aggregator. Fans out over profile + price_action + news +
+    recent_filings concurrently and returns a structured brief with
+    deterministic correlation flags.
+
+    Source-level errors (rate limit, 4xx, parse failure, missing creds)
+    degrade gracefully per section (ok=False, error=...) and don't kill
+    the brief. BudgetExceeded does NOT degrade — it's the brief's safety
+    cap and propagates loud.
+
+    Flags are co-occurrence-within-the-window booleans, NOT same-day or
+    near-in-time correlation. See aggregator.py for the full semantics
+    note and the z>=2.0 / open-market-P+A justifications.
+    """
+    return await _tools.research_brief(ticker, days_back)
 
 
 def main() -> None:

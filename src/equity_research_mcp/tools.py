@@ -2,9 +2,13 @@
 
 Profile and news dispatch to Finnhub; price_action dispatches to yfinance
 (Finnhub's candle endpoint is paid-tier only); recent_filings dispatches
-to EDGAR. Each tool enters a fresh budget context (requests bucket only
-at v0.1). Statistics computed in the tool layer, not the adapter —
-adapters return raw normalized data.
+to EDGAR. Each public tool function enters a fresh budget context. The
+underlying _fetch_* helpers do the work WITHOUT a budget context — they
+require a budget already active so the aggregator (research_brief) can
+call them all under one shared budget for fan-out.
+
+Statistics computed in the tool layer, not the adapter — adapters return
+raw normalized data.
 """
 from __future__ import annotations
 
@@ -28,33 +32,26 @@ ZSCORE_LOOKBACK_TRADING = 30
 ZSCORE_LOOKBACK_CALENDAR_DAYS = 45
 
 
-async def get_company_profile(ticker: str) -> dict[str, Any]:
-    """Return basic company metadata for a US ticker."""
-    with budget_context(DEFAULT_LIMITS):
-        async with FinnhubAdapter() as fin:
-            profile = await fin.get_company_profile(ticker)
+# ---------------------------------------------------------------------------
+# Internal fetch helpers — do NOT open their own budget context.
+# Callers must run them inside `with budget_context(...)`.
+# ---------------------------------------------------------------------------
+
+async def _fetch_profile(ticker: str) -> dict[str, Any]:
+    async with FinnhubAdapter() as fin:
+        profile = await fin.get_company_profile(ticker)
     return profile.model_dump(mode="json")
 
 
-async def get_price_action(ticker: str, start: str, end: str) -> dict[str, Any]:
-    """Return daily price bars over [start, end] (ISO dates) plus a
-    volume z-score per bar versus the prior 30-trading-day average.
-
-    Bars before `start` are fetched only as a baseline window and are
-    not included in the response. Z-score is None when fewer than 30
-    prior bars are available, or when the stdev of the window is zero.
-
-    Backed by yfinance (best-effort, unofficial Yahoo client). Finnhub's
-    candle endpoint is paid-tier only, so price bars come from yfinance
-    even though profile and news are still Finnhub-backed.
-    """
+async def _fetch_price_action(
+    ticker: str, start: str, end: str
+) -> dict[str, Any]:
     start_d = date.fromisoformat(start)
     end_d = date.fromisoformat(end)
     fetch_start = start_d - timedelta(days=ZSCORE_LOOKBACK_CALENDAR_DAYS)
 
-    with budget_context(DEFAULT_LIMITS):
-        async with YFinanceAdapter() as src:
-            all_bars = await src.get_price_bars(ticker, fetch_start, end_d)
+    async with YFinanceAdapter() as src:
+        all_bars = await src.get_price_bars(ticker, fetch_start, end_d)
 
     all_bars_sorted = sorted(all_bars, key=lambda b: b.date)
     in_range = [b for b in all_bars_sorted if start_d <= b.date <= end_d]
@@ -82,13 +79,11 @@ async def get_price_action(ticker: str, start: str, end: str) -> dict[str, Any]:
     }
 
 
-async def get_news(ticker: str, start: str, end: str) -> dict[str, Any]:
-    """Return company news headlines over [start, end] (ISO dates)."""
+async def _fetch_news(ticker: str, start: str, end: str) -> dict[str, Any]:
     start_d = date.fromisoformat(start)
     end_d = date.fromisoformat(end)
-    with budget_context(DEFAULT_LIMITS):
-        async with FinnhubAdapter() as fin:
-            items = await fin.get_news(ticker, start_d, end_d)
+    async with FinnhubAdapter() as fin:
+        items = await fin.get_news(ticker, start_d, end_d)
     return {
         "ticker": ticker.upper(),
         "start": start,
@@ -96,6 +91,58 @@ async def get_news(ticker: str, start: str, end: str) -> dict[str, Any]:
         "items": [item.model_dump(mode="json") for item in items],
         "source": "finnhub",
     }
+
+
+async def _fetch_recent_filings(
+    ticker: str,
+    filing_types: list[str],
+    days_back: int = 30,
+) -> dict[str, Any]:
+    end_d = date.today()
+    start_d = end_d - timedelta(days=days_back)
+    async with EdgarAdapter() as edgar:
+        filings = await edgar.get_filings(ticker, filing_types, start_d, end_d)
+    return {
+        "ticker": ticker.upper(),
+        "filing_types": filing_types,
+        "days_back": days_back,
+        "start": start_d.isoformat(),
+        "end": end_d.isoformat(),
+        "filings": [f.model_dump(mode="json") for f in filings],
+        "source": "edgar",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Public tool functions — wrap a fetch helper in its own budget_context.
+# ---------------------------------------------------------------------------
+
+async def get_company_profile(ticker: str) -> dict[str, Any]:
+    """Return basic company metadata for a US ticker."""
+    with budget_context(DEFAULT_LIMITS):
+        return await _fetch_profile(ticker)
+
+
+async def get_price_action(ticker: str, start: str, end: str) -> dict[str, Any]:
+    """Return daily price bars over [start, end] (ISO dates) plus a
+    volume z-score per bar versus the prior 30-trading-day average.
+
+    Bars before `start` are fetched only as a baseline window and are
+    not included in the response. Z-score is None when fewer than 30
+    prior bars are available, or when the stdev of the window is zero.
+
+    Backed by yfinance (best-effort, unofficial Yahoo client). Finnhub's
+    candle endpoint is paid-tier only, so price bars come from yfinance
+    even though profile and news are still Finnhub-backed.
+    """
+    with budget_context(DEFAULT_LIMITS):
+        return await _fetch_price_action(ticker, start, end)
+
+
+async def get_news(ticker: str, start: str, end: str) -> dict[str, Any]:
+    """Return company news headlines over [start, end] (ISO dates)."""
+    with budget_context(DEFAULT_LIMITS):
+        return await _fetch_news(ticker, start, end)
 
 
 async def get_recent_filings(
@@ -115,17 +162,11 @@ async def get_recent_filings(
     the transaction date. Transaction date is preserved per-transaction
     on each InsiderTransaction record.
     """
-    end_d = date.today()
-    start_d = end_d - timedelta(days=days_back)
     with budget_context(EDGAR_LIMITS):
-        async with EdgarAdapter() as edgar:
-            filings = await edgar.get_filings(ticker, filing_types, start_d, end_d)
-    return {
-        "ticker": ticker.upper(),
-        "filing_types": filing_types,
-        "days_back": days_back,
-        "start": start_d.isoformat(),
-        "end": end_d.isoformat(),
-        "filings": [f.model_dump(mode="json") for f in filings],
-        "source": "edgar",
-    }
+        return await _fetch_recent_filings(ticker, filing_types, days_back)
+
+
+async def research_brief(ticker: str, days_back: int = 30) -> dict[str, Any]:
+    """See aggregator.research_brief — the thin tool wrapper just delegates."""
+    from . import aggregator
+    return await aggregator.research_brief(ticker, days_back=days_back)

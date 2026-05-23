@@ -177,3 +177,51 @@ limit is unknown, write "unmeasured" instead of guessing.
   suggestion). Offline only; no network tools.
 - `adapter-test-writer` (sonnet) — writes fixture-based pytest tests
   for a given adapter. Offline only; no live network calls.
+
+## v0.1.0 deferred items
+
+The v0.1.0 release explicitly defers 11 items from the code-review
+carry-over track. Each is a stated decision, not a forgotten loose
+end. Touching code that doesn't need fixing right before a release
+tag is the riskiest possible time for unnecessary change; deferring
+the prophylactic ones (P2.W3, P2.S4) is the same "no error handling
+for can't-happen scenarios" discipline this CLAUDE.md applies
+throughout, applied to the release boundary itself.
+
+**Closed (no longer carry-over)**
+- **P3.S4** — EdgarAdapter injected client missing `SEC_USER_AGENT`
+  header. Resolved by design: the aggregator does not inject a shared
+  client; each `_fetch_recent_filings` call constructs its own
+  UA-headered adapter. The contract gap stayed theoretical.
+
+**Deferred to v0.2** (most v0.1 carry-over)
+- **P1.S1** — `@runtime_checkable` on `SourceAdapter` Protocol with
+  no `isinstance` users. Intentional extension-seam tooling.
+- **P1.S-NEW-1** — `data.get("written_at", 0)` epoch-0 sentinel.
+  Functionally equivalent; bundle with any v0.2 cache-layer work.
+- **P1.S-NEW-2** — `next(tmp_cache_dir.iterdir())` test brittleness.
+  Revisit only if the cache file layout changes.
+- **P2.W3** — `date.fromisoformat` `ValueError` unwrapped at tool
+  boundary. FastMCP wraps it at runtime; adding a typed validation
+  layer for a non-problem is the prophylactic defense the project
+  rules out.
+- **P2.S1** — `pstdev` vs `stdev` choice unannotated. Readability nit;
+  context-documented in aggregator docstrings.
+- **P2.S2** — Finnhub candle cache key uses Unix timestamps. UTC
+  midnight is deterministic per calendar date; no correctness gap.
+- **P2.S4** — yfinance `_bar_from_cache` defensive
+  `.get("source", SOURCE)` fallback is unreachable. Dead-fallback
+  cleanup; bundle into v0.2 polish.
+- **P3.S1** — `_parse_form4_transactions` except tuple has `KeyError`
+  + `TypeError` that are dead/broad. Intentional broad-catch at the
+  per-filing graceful-degradation boundary.
+
+**Deferred to v0.2+** (timing depends on related work)
+- **P1.S5** — `SocialMention.score` non-sentiment field comment.
+  Revise schema and field semantics when a real social adapter ships.
+- **P3.S3** — `Filing.source = "edgar"` default is schema smell.
+  Revise when a second filing source lands.
+
+**Deferred to v0.3** (LLM critic phase)
+- **P1.S2** — `BUCKET_TOKENS` constant unused. Reserved for the LLM
+  gateway's tokens bucket.

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "equity-research-mcp"
-version = "0.1.0.dev0"
-description = "MCP server exposing equity-research tools over Finnhub, SEC EDGAR, and Reddit."
+version = "0.1.0"
+description = "MCP server exposing equity-research tools over Finnhub, yfinance, and SEC EDGAR."
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [{ name = "Tomislav Sola" }]
@@ -22,6 +22,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=1.0",
+    "pytest-cov>=7.0",
     "respx>=0.21",
 ]
 
@@ -34,3 +35,21 @@ packages = ["src/equity_research_mcp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/equity_research_mcp"]
+# Excluded by design — see README "Excluded from coverage by design":
+# - __init__.py: package metadata only.
+# - server.py: FastMCP startup + thin @mcp.tool() decorators that
+#   delegate to tools.py; decorator bodies are one line.
+# - adapters/protocol.py: typing.Protocol declaration; method signatures
+#   are abstract by construction (no executable body to cover).
+omit = [
+    "src/equity_research_mcp/__init__.py",
+    "src/equity_research_mcp/server.py",
+    "src/equity_research_mcp/adapters/protocol.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

@@ -635,6 +635,59 @@ def test_extract_form4_transactions_pure_function():
 # ---------------------------------------------------------------------------
 
 @respx.mock
+async def test_form4_xml_cache_hit_skips_budget_charge(tmp_cache_dir, monkeypatch):
+    """The form4_xml cache tier (TTL_FILING_XML_SECONDS) is the most expensive
+    per-call: one charge per Form 4 in the result window. A repeat call must
+    serve every Form 4 XML from cache and charge zero budget for them.
+    This complements test_cache_hit_skips_budget_charge (which only verifies
+    the tickers_map and submissions tiers, via the 8-K path).
+    """
+    tickers_payload = load_json("company_tickers.json")
+    submissions_payload = load_json("submissions_acme.json")
+    well_formed_xml = load_text("form4_well_formed.xml")
+
+    tickers_route = respx.get(TICKERS_URL).mock(
+        return_value=httpx.Response(200, json=tickers_payload)
+    )
+    submissions_route = respx.get(SUBMISSIONS_URL).mock(
+        return_value=httpx.Response(200, json=submissions_payload)
+    )
+    form4_route_1 = respx.get(FORM4_URL_1).mock(
+        return_value=httpx.Response(200, text=well_formed_xml)
+    )
+    form4_route_2 = respx.get(FORM4_URL_2).mock(
+        return_value=httpx.Response(200, text=well_formed_xml)
+    )
+    form4_route_3 = respx.get(FORM4_URL_3).mock(
+        return_value=httpx.Response(200, text=well_formed_xml)
+    )
+
+    adapter = make_adapter(tmp_cache_dir, monkeypatch)
+
+    # First call: warms tickers + submissions + all 3 Form 4 XMLs.
+    with budget_context({BUCKET_REQUESTS: 10}):
+        first = await adapter.get_filings(
+            "ACME", ["4"], date(2026, 1, 1), date(2026, 12, 31)
+        )
+
+    # Second call with budget 0: every fetch must come from cache,
+    # including the Form 4 XML tier (the expensive one).
+    with budget_context({BUCKET_REQUESTS: 0}):
+        second = await adapter.get_filings(
+            "ACME", ["4"], date(2026, 1, 1), date(2026, 12, 31)
+        )
+
+    assert len(first) == len(second) == 3
+    # Every route was hit exactly once across BOTH calls — second call
+    # never reached the network.
+    assert tickers_route.call_count == 1
+    assert submissions_route.call_count == 1
+    assert form4_route_1.call_count == 1
+    assert form4_route_2.call_count == 1
+    assert form4_route_3.call_count == 1
+
+
+@respx.mock
 async def test_form4_xsl_prefix_stripped_to_fetch_raw_xml(tmp_cache_dir, monkeypatch):
     """When primaryDocument is 'xslF345X06/form4.xml' (SEC's modern
     styled-view convention), the adapter must fetch the raw XML at

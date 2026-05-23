@@ -25,7 +25,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "version": __version__}
 
 
-# --- Research tools (3 of 6 for v0.1). Phase 2: Finnhub-backed. ---
+# --- Research tools (4 of 6 for v0.1). Finnhub + yfinance + EDGAR. ---
 
 
 @mcp.tool()

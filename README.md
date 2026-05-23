@@ -253,17 +253,36 @@ the project keeps keys in your shell environment by design.
 
 ### Mounting in Claude Code
 
-Options come before the server name; `--` separates the name from the
-command path (this is the current `claude mcp add` syntax — see the
-[Claude Code MCP docs](https://docs.claude.com/en/docs/claude-code/mcp)):
+Use the JSON-config form (`claude mcp add-json`). The shorthand
+`claude mcp add -e KEY=value ... <name> -- <command>` form looks
+simpler in the docs, but its `-e/--env` flag is declared variadic in
+the Claude Code CLI and can greedily absorb the server-name positional
+when you have more than one env var. The JSON form passes all
+configuration through a single argument and avoids the ambiguity.
+
+Run this **from the repo root** (the `$(pwd)` expansion picks up the
+absolute path so you don't have to substitute it manually):
 
 ```bash
-claude mcp add --transport stdio \
-  --env FINNHUB_API_KEY="your_key_here" \
-  --env SEC_USER_AGENT="Your Name your@email" \
-  equity-research \
-  -- /absolute/path/to/equity-research-mcp/.venv/bin/equity-research-mcp
+claude mcp add-json equity-research "$(cat <<JSON
+{
+  "type": "stdio",
+  "command": "$(pwd)/.venv/bin/equity-research-mcp",
+  "env": {
+    "FINNHUB_API_KEY": "$FINNHUB_API_KEY",
+    "SEC_USER_AGENT": "$SEC_USER_AGENT"
+  }
+}
+JSON
+)"
 ```
+
+`$(pwd)`, `$FINNHUB_API_KEY`, and `$SEC_USER_AGENT` are all expanded
+by the shell inside the heredoc before the JSON reaches `claude`.
+Verify with `claude mcp list` (and `claude mcp get equity-research`
+if you want detail — be aware the latter prints your env values in
+cleartext to the terminal). Remove with
+`claude mcp remove equity-research`.
 
 ### First command to try
 

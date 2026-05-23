@@ -26,6 +26,32 @@ class CompanyProfile(BaseModel):
     source: str
 
 
+class InsiderTransaction(BaseModel):
+    """A single nonDerivative transaction parsed from a Form 4 filing.
+
+    Field semantics:
+    - transaction_code: raw single-letter SEC code (P, S, A, D, M, G, ...);
+      not expanded to human-readable here so the LLM / aggregator can
+      interpret. P = open-market purchase, S = open-market sale, etc.
+    - acquired_or_disposed: "A" (holdings increased) or "D" (decreased).
+      Complementary to transaction_code — gives the one-bit direction.
+    - is_direct: True if the insider holds shares directly, False if held
+      indirectly (trust, family member, LLC).
+    - price: None when the transaction has no per-share price (e.g. gifts).
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    insider_name: str
+    insider_relationship: str  # composed: "Officer: CFO, Director", etc.
+    transaction_code: str
+    acquired_or_disposed: str  # "A" or "D"
+    transaction_date: date
+    shares: int
+    price: Decimal | None = None
+    is_direct: bool
+
+
 class Filing(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -35,6 +61,10 @@ class Filing(BaseModel):
     accession_number: str
     url: str
     summary: str | None = None
+    # Populated only for Form 4 when XML parsing succeeds. None means
+    # either "not a Form 4" or "parse failed" (graceful degradation —
+    # the filing itself still surfaces).
+    transactions: list[InsiderTransaction] | None = None
     source: str = "edgar"
 
 

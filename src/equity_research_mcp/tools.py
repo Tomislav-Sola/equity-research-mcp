@@ -1,9 +1,10 @@
-"""Phase 2 research tools — thin wrappers over the Finnhub and yfinance adapters.
+"""Research tools — thin wrappers over the Finnhub, yfinance, and EDGAR adapters.
 
 Profile and news dispatch to Finnhub; price_action dispatches to yfinance
-(Finnhub's candle endpoint is paid-tier only). Each tool enters a fresh
-budget context (requests bucket only at v0.1). Statistics computed in
-the tool layer, not the adapter — adapters return raw normalized data.
+(Finnhub's candle endpoint is paid-tier only); recent_filings dispatches
+to EDGAR. Each tool enters a fresh budget context (requests bucket only
+at v0.1). Statistics computed in the tool layer, not the adapter —
+adapters return raw normalized data.
 """
 from __future__ import annotations
 
@@ -11,13 +12,16 @@ import statistics
 from datetime import date, timedelta
 from typing import Any
 
+from .adapters.edgar import EdgarAdapter
 from .adapters.finnhub import FinnhubAdapter
 from .adapters.yfinance import YFinanceAdapter
 from .budget import BUCKET_REQUESTS, budget_context
 
-# Generous per-call budget: Phase 2 tools make exactly one HTTP call,
-# the headroom is for v0.2 retries and v0.3 aggregator fan-out.
+# Generous per-call budget for single-fetch tools (Finnhub, yfinance).
 DEFAULT_LIMITS = {BUCKET_REQUESTS: 5}
+# EDGAR fans out: tickers_map (cached) + submissions + N Form 4 XML
+# fetches. 50 gives ~2x headroom over a heavy-insider month.
+EDGAR_LIMITS = {BUCKET_REQUESTS: 50}
 
 # 30 trading days ≈ 45 calendar days; pad covers weekends and US holidays.
 ZSCORE_LOOKBACK_TRADING = 30
@@ -91,4 +95,37 @@ async def get_news(ticker: str, start: str, end: str) -> dict[str, Any]:
         "end": end,
         "items": [item.model_dump(mode="json") for item in items],
         "source": "finnhub",
+    }
+
+
+async def get_recent_filings(
+    ticker: str,
+    filing_types: list[str],
+    days_back: int = 30,
+) -> dict[str, Any]:
+    """Return SEC filings (Form 4, 8-K, 13G, 13D, ...) for ticker filed
+    in the last `days_back` calendar days.
+
+    Form 4 filings include parsed insider transactions when the
+    ownership-document XML parses successfully. If a specific Form 4
+    won't parse, that filing surfaces with transactions=None and a
+    stderr warning — one malformed filing must not take down the call.
+
+    `days_back` filters on the FILING date (when SEC received it), not
+    the transaction date. Transaction date is preserved per-transaction
+    on each InsiderTransaction record.
+    """
+    end_d = date.today()
+    start_d = end_d - timedelta(days=days_back)
+    with budget_context(EDGAR_LIMITS):
+        async with EdgarAdapter() as edgar:
+            filings = await edgar.get_filings(ticker, filing_types, start_d, end_d)
+    return {
+        "ticker": ticker.upper(),
+        "filing_types": filing_types,
+        "days_back": days_back,
+        "start": start_d.isoformat(),
+        "end": end_d.isoformat(),
+        "filings": [f.model_dump(mode="json") for f in filings],
+        "source": "edgar",
     }

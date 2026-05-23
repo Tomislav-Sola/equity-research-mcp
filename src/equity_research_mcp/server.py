@@ -1,8 +1,7 @@
 """FastMCP server entrypoint.
 
-Phase 2 adds the first three research tools (3 of the 6 frozen for
-v0.1). The diagnostic `health` tool from Phase 1 remains and is not
-counted.
+Phase 3 adds get_recent_filings (4 of the 6 frozen for v0.1). The
+diagnostic `health` tool from Phase 1 remains and is not counted.
 """
 from __future__ import annotations
 
@@ -47,6 +46,22 @@ async def get_price_action(ticker: str, start: str, end: str) -> dict[str, Any]:
 async def get_news(ticker: str, start: str, end: str) -> dict[str, Any]:
     """Company news headlines over [start, end] (ISO dates). Dates are inclusive."""
     return await _tools.get_news(ticker, start, end)
+
+
+@mcp.tool()
+async def get_recent_filings(
+    ticker: str,
+    filing_types: list[str],
+    days_back: int = 30,
+) -> dict[str, Any]:
+    """SEC filings (Form 4, 8-K, 13G, 13D) for ticker filed in the last
+    `days_back` calendar days. Form 4 filings include parsed insider
+    transactions (insider name, shares, price, A/D direction) when XML
+    parsing succeeds; if a single filing fails to parse, that filing
+    returns with transactions=None and a stderr warning. days_back
+    filters on filing date.
+    """
+    return await _tools.get_recent_filings(ticker, filing_types, days_back)
 
 
 def main() -> None:

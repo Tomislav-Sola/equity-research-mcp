@@ -64,7 +64,7 @@ aggregator is source-unaware.
 ### Filesystem cache, content-hash + per-source TTL
 JSON files under `~/.cache/equity-research-mcp/`. Key is SHA-256 of
 (source, endpoint, params). TTL is per-source (price=1d, filings=1w,
-news=4h, social=1h). No SQLite, no Redis.
+news=4h, profile=1w). No SQLite, no Redis.
 
 ### No persistent state between MCP calls
 Each tool call is stateless. Watchlists, alerts, "remember this from

@@ -85,8 +85,13 @@ genuine):
   "filings":      { "ok": true,  "error": null, "data": {
       "filings": [
         {
-          "form_type": "4",
-          "filed_at": "2026-05-12T00:00:00",
+          "ticker":            "AAPL",
+          "form_type":         "4",
+          "filed_at":          "2026-05-12T00:00:00",
+          "accession_number":  "0001140361-26-020871",
+          "url":               "https://www.sec.gov/Archives/edgar/data/320193/000114036126020871/xslF345X06/form4.xml",
+          "summary":           null,
+          "source":            "edgar",
           "transactions": [{
             "insider_name":         "OFFICER A",
             "insider_relationship": "Officer: Principal Accounting Officer",
@@ -99,8 +104,13 @@ genuine):
           }]
         },
         {
-          "form_type": "4",
-          "filed_at": "2026-05-08T00:00:00",
+          "ticker":            "AAPL",
+          "form_type":         "4",
+          "filed_at":          "2026-05-08T00:00:00",
+          "accession_number":  "0001140361-26-020298",
+          "url":               "https://www.sec.gov/Archives/edgar/data/320193/000114036126020298/xslF345X06/form4.xml",
+          "summary":           null,
+          "source":            "edgar",
           "transactions": [
             { "insider_name": "DIRECTOR A", "insider_relationship": "Director",
               "transaction_code": "S", "acquired_or_disposed": "D",
@@ -117,8 +127,13 @@ genuine):
           ]
         },
         {
-          "form_type": "4",
-          "filed_at": "2026-04-27T00:00:00",
+          "ticker":            "AAPL",
+          "form_type":         "4",
+          "filed_at":          "2026-04-27T00:00:00",
+          "accession_number":  "0001140361-26-017175",
+          "url":               "https://www.sec.gov/Archives/edgar/data/320193/000114036126017175/xslF345X06/form4.xml",
+          "summary":           null,
+          "source":            "edgar",
           "transactions": [{
             "insider_name":         "OFFICER B",
             "insider_relationship": "Officer: Senior Vice President, CFO",
@@ -130,7 +145,16 @@ genuine):
             "transaction_date":     "2026-04-23"
           }]
         },
-        { "form_type": "8-K", "filed_at": "2026-04-30T00:00:00", "transactions": null }
+        {
+          "ticker":            "AAPL",
+          "form_type":         "8-K",
+          "filed_at":          "2026-04-30T00:00:00",
+          "accession_number":  "0000320193-26-000011",
+          "url":               "https://www.sec.gov/Archives/edgar/data/320193/000032019326000011/aapl-20260430.htm",
+          "summary":           null,
+          "source":            "edgar",
+          "transactions":      null
+        }
       ]
   }}
 }
@@ -248,9 +272,10 @@ Once mounted, ask Claude:
 > Run `research_brief` on AAPL for the last 30 days and tell me what
 > the flags mean.
 
-The brief will fan out across the four sources concurrently. With a
-warm cache the second call on the same ticker returns in under a
-second.
+The brief will fan out across the four single-source tools
+concurrently. A warm cache lets the second call on the same ticker
+skip the network entirely (filesystem reads only); the actual latency
+is unmeasured.
 
 ## Architecture
 
